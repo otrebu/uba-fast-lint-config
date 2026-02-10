@@ -4,24 +4,24 @@ A fast ESLint + Prettier replacement using **Biome** (formatter), **oxlint** (bu
 
 Drop-in replacement for [uba-eslint-config](https://github.com/otrebu/uba-eslint-config) with the same rule coverage and a compatible API.
 
-## Architecture
+## How It Works
 
-| Layer | Tool | Role |
-|-------|------|------|
+Three tools, each doing what it does best:
+
+```
+biome format .     →  formatting only (replaces Prettier)        ~40x faster
+oxlint .           →  ~200 lint rules in Rust                    ~50-100x faster
+eslint .           →  ~80 gap rules (plugins oxlint can't run)   same speed, way fewer rules
+```
+
+`eslint-plugin-oxlint` sits between oxlint and ESLint — it auto-disables any ESLint rule that oxlint already covers, so nothing runs twice.
+
+| Layer | Tool | What it does |
+|-------|------|--------------|
 | Formatting | **Biome** | Replaces Prettier — formats JS/TS/JSON/CSS/HTML |
-| Bulk linting | **oxlint** | Handles ~200 rules from eslint core, typescript-eslint, react, jsx-a11y, unicorn, promise, import, vitest |
-| Gap plugins | **ESLint** (slim) | Runs only plugins with no oxlint/Biome equivalent: perfectionist, canonical, check-file, function-name, cypress, graphql, storybook, tanstack-query, tanstack-router, tailwindcss, chai-friendly |
-| Dedup layer | **eslint-plugin-oxlint** | Auto-disables ESLint rules that oxlint already covers |
-
-## Features
-
-- **TypeScript** support with type-aware linting (ESLint gap layer)
-- **React** with hooks and accessibility rules (oxlint)
-- **Testing**: Vitest (oxlint) and Cypress (ESLint gap)
-- **Code Quality**: Unicorn, Promise, Import (oxlint) + Perfectionist, Canonical (ESLint gap)
-- **Sorting & Formatting**: Perfectionist for code organization, Biome for formatting
-- **GraphQL**, **TanStack Query**, **TanStack Router**, and optional **Storybook** support (ESLint gap)
-- **Tailwind CSS** class ordering (ESLint gap — replaces prettier-plugin-tailwindcss)
+| Bulk linting | **oxlint** | ~200 rules from eslint core, typescript-eslint, react, jsx-a11y, unicorn, promise, import, vitest |
+| Gap plugins | **ESLint** (slim) | Plugins with no oxlint equivalent: perfectionist, canonical, check-file, function-name, cypress, graphql, storybook, tanstack-query, tanstack-router, tailwindcss, chai-friendly, + gap rules from react/unicorn/import/typescript/vitest/promise that oxlint hasn't implemented |
+| Dedup | **eslint-plugin-oxlint** | Auto-disables ESLint rules oxlint already covers (must be last in config) |
 
 ## Installation
 
@@ -29,11 +29,30 @@ Drop-in replacement for [uba-eslint-config](https://github.com/otrebu/uba-eslint
 pnpm add -D uba-fast-lint-config
 ```
 
-## Usage
+This installs Biome, oxlint, ESLint, and all gap plugins as transitive dependencies.
 
-### Basic Usage (ESLint only)
+## Setup
 
-For projects that only need the ESLint gap config (oxlint + Biome configured separately):
+### 1. Copy the config files
+
+Your project needs three config files. Copy them from this package or generate them:
+
+**biome.json** — copy from `node_modules/uba-fast-lint-config/biome.json`, or generate:
+
+```js
+import { generateFormatterConfig } from "uba-fast-lint-config";
+const { config, gaps } = generateFormatterConfig({ appType: "fullstack" });
+// Write `config` to biome.json
+// `gaps` lists Prettier plugins with no Biome equivalent + workarounds
+```
+
+**.oxlintrc.json** — copy from `node_modules/uba-fast-lint-config/.oxlintrc.json`:
+
+```bash
+cp node_modules/uba-fast-lint-config/.oxlintrc.json .
+```
+
+**eslint.config.js** — import the gap config:
 
 ```js
 // eslint.config.js
@@ -42,99 +61,167 @@ import { ubaFastLintConfig } from "uba-fast-lint-config";
 export default [...ubaFastLintConfig];
 ```
 
-### Full Config Bundle
+### 2. Add scripts to package.json
 
-`generateLintConfig` returns configs for all three tools:
+```jsonc
+{
+  "scripts": {
+    // --- Two-tier lint commands ---
+    "lint:fast": "oxlint .",                          // ~200 rules, instant
+    "lint:full": "oxlint . && eslint .",              // ~280 rules, slightly slower
+    "lint:fast:fix": "oxlint --fix .",
+    "lint:full:fix": "oxlint --fix . && eslint --fix .",
+
+    // --- Formatting ---
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+
+    // --- All-in-one ---
+    "fix": "biome format --write . && oxlint --fix . && eslint --fix .",
+    "check": "biome format . && oxlint . && eslint ."
+  }
+}
+```
+
+### 3. (Optional) Pre-commit hook
+
+```bash
+# .husky/pre-commit
+npx sort-package-json          # replaces prettier-plugin-packagejson
+biome format --write .
+oxlint .
+eslint .
+git add -u
+```
+
+## Two Speed Tiers
+
+The key insight: you don't always need every rule.
+
+### Fast tier: `oxlint` + `biome` only
+
+```bash
+biome format --write . && oxlint .
+```
+
+- **~200 lint rules** from eslint core, typescript, react, jsx-a11y, unicorn, promise, import, vitest
+- Catches the vast majority of bugs, security issues, and style violations
+- Runs in **milliseconds** on most codebases
+- Use this for: **pre-commit hooks, watch mode, quick iteration, editor on-save**
+
+### Full tier: `oxlint` + `eslint` + `biome`
+
+```bash
+biome format --write . && oxlint . && eslint .
+```
+
+- **~280 rules** — everything from the fast tier, plus ~80 gap rules from ESLint plugins
+- Adds: perfectionist sorting, import resolution/cycle detection, canonical import aliases, filename conventions, function naming, React gap rules (boolean-prop-naming, function-component-definition, etc.), unicorn gap rules (prevent-abbreviations, etc.), vitest gap rules, promise/no-return-in-finally, GraphQL, Cypress, Storybook, TanStack, Tailwind class ordering
+- Runs in **seconds** (ESLint is the bottleneck, but it's running ~60% fewer rules than a full ESLint setup)
+- Use this for: **CI, pre-push, PR checks**
+
+### Choosing which tier to use where
+
+| Context | Recommended | Why |
+|---------|-------------|-----|
+| Editor on-save | Fast | Instant feedback, no lag |
+| Pre-commit hook | Fast or Full | Fast for speed; Full if you want CI parity locally |
+| CI pipeline | Full | Catch everything before merge |
+| Watch mode / TDD | Fast | Don't break flow |
+| Pre-push hook | Full | Last chance before CI |
+
+## Usage Patterns
+
+### Fullstack (default)
+
+```js
+// eslint.config.js
+import { ubaFastLintConfig } from "uba-fast-lint-config";
+
+export default [...ubaFastLintConfig];
+```
+
+Enables: React, TypeScript, Cypress, TanStack Query/Router, Tailwind, Perfectionist, Canonical, etc.
+
+### Backend only
 
 ```js
 import { generateLintConfig } from "uba-fast-lint-config";
 
-const { oxlintConfig, eslintConfig, biomeFormatterConfig } = generateLintConfig({
-  appType: "fullstack", // or "backendOnly"
-  shouldEnableStorybook: false,
-  shouldEnableTypescript: true,
-});
+const { eslintConfig } = generateLintConfig({ appType: "backendOnly" });
 
-// eslint.config.js — use eslintConfig
 export default eslintConfig;
-
-// oxlintConfig  — write to .oxlintrc.json or reference programmatically
-// biomeFormatterConfig — write to biome.json or reference programmatically
 ```
 
-### Fine-grained Control
+Disables: React, Cypress, GraphQL, TanStack, Tailwind, Storybook.
+
+### Fine-grained control
 
 ```js
 import { generateLintConfigByFeatures } from "uba-fast-lint-config";
 
-const { oxlintConfig, eslintConfig, biomeFormatterConfig } = generateLintConfigByFeatures({
+const { eslintConfig } = generateLintConfigByFeatures({
   appType: "fullstack",
   shouldEnableTypescript: true,
+  shouldEnableReact: true,
   shouldEnableCypress: false,
-  shouldEnableGraphql: false,
+  shouldEnableGraphql: true,
   shouldEnableStorybook: false,
   shouldEnableQuery: true,
-  shouldEnableRouter: true,
+  shouldEnableRouter: false,
   shouldEnableTailwind: true,
 });
 
 export default eslintConfig;
 ```
 
-### Formatter Configuration
+### Storybook (opt-in)
 
-Biome replaces Prettier. The `biome.json` in this package provides the default settings.
-
-To generate a Biome config programmatically:
-
-```js
-import { generateFormatterConfig } from "uba-fast-lint-config";
-
-const { config, gaps } = generateFormatterConfig({ appType: "fullstack" });
-// config: Biome-compatible formatter settings
-// gaps: array of Prettier plugins with no Biome equivalent + workarounds
-```
-
-### Recommended Scripts
-
-```js
-import { getScripts } from "uba-fast-lint-config";
-
-console.log(getScripts());
-// {
-//   lint:          "oxlint . && eslint .",
-//   "lint:fix":    "oxlint --fix . && eslint --fix .",
-//   format:        "biome format --write .",
-//   "format:check": "biome format .",
-//   check:         "biome check .",
-//   fix:           "biome format --write . && oxlint --fix . && eslint --fix .",
-// }
-```
-
-### Running
+Storybook requires optional peer deps:
 
 ```bash
-# Format (Biome)
-biome format --write .
+pnpm add -D eslint-plugin-storybook storybook
+```
 
-# Lint (oxlint + ESLint)
-oxlint .
-eslint .
+```js
+const { eslintConfig } = generateLintConfig({
+  appType: "fullstack",
+  shouldEnableStorybook: true,
+});
+```
 
-# Or use the package scripts:
-pnpm run format      # biome format --write .
-pnpm run lint        # oxlint . && eslint .
-pnpm run fix         # biome format --write . && oxlint --fix . && eslint --fix .
+## CI Pipeline Example
+
+```yaml
+# .github/workflows/ci.yml
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+
+      # Fast tier — fails fast on obvious issues
+      - run: biome format .
+      - run: oxlint .
+
+      # Full tier — catches everything
+      - run: eslint .
+        env:
+          CI: "true"  # enables import/no-cycle (expensive, CI-only)
 ```
 
 ## Exports
 
 | Export | Description |
 |--------|-------------|
-| `ubaFastLintConfig` | Default ESLint gap config array (spread into `eslint.config.js`) |
-| `generateLintConfig()` | Returns `{ oxlintConfig, eslintConfig, biomeFormatterConfig }` |
-| `generateLintConfigByFeatures()` | Same bundle with fine-grained feature flags |
-| `generateFormatterConfig()` | Returns `{ config, gaps }` for Biome formatter |
+| `ubaFastLintConfig` | Default fullstack ESLint gap config array (spread into `eslint.config.js`) |
+| `generateLintConfig({ appType, shouldEnableStorybook, shouldEnableTypescript })` | Returns `{ eslintConfig, oxlintConfig, biomeFormatterConfig }` |
+| `generateLintConfigByFeatures({ ... })` | Same bundle with per-feature flags |
+| `generateFormatterConfig({ appType })` | Returns `{ config, gaps }` for Biome formatter |
 | `getScripts()` | Returns recommended `package.json` scripts |
 
 ## Migrating from uba-eslint-config
@@ -143,12 +230,11 @@ See [docs/MIGRATION_GUIDE.md](docs/MIGRATION_GUIDE.md) for step-by-step instruct
 
 ## Known Gaps
 
-~75 rules (~15%) from the original config have no oxlint/Biome equivalent. See [docs/KNOWN_GAPS.md](docs/KNOWN_GAPS.md) for the full list with severity ratings.
+See [docs/KNOWN_GAPS.md](docs/KNOWN_GAPS.md) for the full list. Summary:
 
-## Peer Dependencies
-
-- `eslint-plugin-storybook@^10.2.8` (if enabling Storybook lint rules)
-- `storybook@^10.2.8` (if enabling Storybook lint rules)
+- **27 type-aware TS rules** (await-thenable, no-floating-promises, etc.) — waiting on oxlint to stabilize `--type-aware` flag
+- **~8 low-risk rules** — engine-checked, empty config, or formatter-handled
+- **Prettier plugin gaps** — `prettier-plugin-packagejson` (workaround: sort-package-json), `prettier-plugin-tailwindcss` (workaround: eslint-plugin-tailwindcss), embedded language formatting (no workaround)
 
 ## License
 
