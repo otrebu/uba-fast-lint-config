@@ -33,11 +33,11 @@ jobs:
       - name: Run format check (Biome)
         id: format-check
         continue-on-error: true
-        run: biome format .
+        run: pnpm exec biome format .
 
       - name: Auto-fix formatting issues
         if: steps.format-check.outcome == 'failure' && github.event_name == 'pull_request'
-        run: biome format --write .
+        run: pnpm exec biome format --write .
 
       - name: Commit formatting changes
         id: auto-commit
@@ -49,13 +49,13 @@ jobs:
 
       - name: Run oxlint
         if: steps.format-check.outcome == 'success' || steps.auto-commit.outputs.changes_detected != 'true'
-        run: oxlint --config .oxlintrc.json .
+        run: pnpm exec oxlint --config .oxlintrc.json .
 
       - name: Run ESLint (gap plugins)
         if: steps.format-check.outcome == 'success' || steps.auto-commit.outputs.changes_detected != 'true'
         env:
           CI: "true"
-        run: eslint .
+        run: pnpm exec eslint .
 
   release:
     name: Release
