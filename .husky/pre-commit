@@ -1,0 +1,7 @@
+echo Running some checks
+
+npx sort-package-json
+biome format --write .
+oxlint .
+eslint .
+git add -u
