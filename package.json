@@ -1,0 +1,83 @@
+{
+  "name": "uba-fast-lint-config",
+  "version": "0.1.0",
+  "description": "Fast ESLint + Prettier alternative using Biome, oxlint, and slim ESLint for gap plugins",
+  "keywords": [
+    "eslint",
+    "biome",
+    "oxlint",
+    "typescript",
+    "react",
+    "formatter",
+    "linter"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/otrebu/uba-fast-lint-config.git"
+  },
+  "license": "MIT",
+  "author": "Uberto Rapizzi",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "lint": "oxlint . && eslint .",
+    "lint:fix": "oxlint --fix . && eslint --fix .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "check": "biome check .",
+    "fix": "biome format --write . && oxlint --fix . && eslint --fix .",
+    "prepare": "husky"
+  },
+  "dependencies": {
+    "@biomejs/biome": "^2.3.0",
+    "oxlint": "^1.0.0",
+    "eslint-plugin-oxlint": "^1.0.0",
+    "@commitlint/cli": "^20.4.1",
+    "@commitlint/config-conventional": "^20.4.1",
+    "@eslint/js": "^9.39.2",
+    "@graphql-eslint/eslint-plugin": "^4.4.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^12.0.5",
+    "@semantic-release/npm": "^13.1.4",
+    "@semantic-release/release-notes-generator": "^14.1.0",
+    "@tanstack/eslint-plugin-query": "^5.91.4",
+    "@tanstack/eslint-plugin-router": "^1.155.0",
+    "eslint": "^9.39.2",
+    "eslint-import-resolver-typescript": "^4.4.4",
+    "eslint-plugin-canonical": "^5.1.3",
+    "eslint-plugin-chai-friendly": "^1.1.0",
+    "eslint-plugin-check-file": "^3.3.1",
+    "eslint-plugin-cypress": "^5.3.0",
+    "eslint-plugin-function-name": "^2.0.5",
+    "eslint-plugin-perfectionist": "^5.5.0",
+    "eslint-plugin-tailwindcss": "^3.18.2",
+    "globals": "^17.3.0",
+    "husky": "^9.1.7",
+    "semantic-release": "^25.0.3",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.55.0"
+  },
+  "peerDependencies": {
+    "eslint-plugin-storybook": "^10.2.8",
+    "storybook": "^10.2.8"
+  },
+  "peerDependenciesMeta": {
+    "eslint-plugin-storybook": {
+      "optional": true
+    },
+    "storybook": {
+      "optional": true
+    }
+  },
+  "packageManager": "pnpm@10.6.5+sha512.cdf928fca20832cd59ec53826492b7dc25dc524d4370b6b4adbf65803d32efaa6c1c88147c0ae4e8d579a6c9eec715757b50d4fa35eea179d868eada4ed043af",
+  "publishConfig": {
+    "access": "public"
+  },
+  "pnpm": {
+    "overrides": {
+      "eslint-plugin-canonical>@typescript-eslint/utils": "8.55.0"
+    }
+  }
+}
