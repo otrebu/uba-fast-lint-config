@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/otrebu/uba-fast-lint-config/compare/v1.0.0...v1.1.0) (2026-02-11)
+
+
+### Features
+
+* **migration:** add script and rewrite guide with expectations ([2511b56](https://github.com/otrebu/uba-fast-lint-config/commit/2511b56e3247fa97b584622643fdfa0e3e90e769))
+
 # 1.0.0 (2026-02-11)
 
 
