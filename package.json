@@ -19,6 +19,9 @@
   "author": "Uberto Rapizzi",
   "type": "module",
   "main": "index.js",
+  "bin": {
+    "migrate-to-fast-lint": "./bin/migrate.sh"
+  },
   "scripts": {
     "check": "biome check .",
     "fix": "biome format --write . && oxlint --fix . && eslint --fix .",
