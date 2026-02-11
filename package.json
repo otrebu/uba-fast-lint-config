@@ -1,6 +1,6 @@
 {
   "name": "uba-fast-lint-config",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Fast ESLint + Prettier alternative using Biome, oxlint, and slim ESLint for gap plugins",
   "keywords": [
     "eslint",
